@@ -4,12 +4,12 @@ import UIKit
 /// Deep Linking SDK for iOS
 /// Compatible with iOS 13.0+ and latest Xcode versions
 @available(iOS 13.0, *)
-public class DeepLinkingSDK {
+@objc public class DeepLinkingSDK: NSObject {
     
     // MARK: - Properties
     
     /// Shared instance for singleton access
-    public static let shared = DeepLinkingSDK()
+    @objc public static let shared = DeepLinkingSDK()
     
     /// Base URL for the deep linking service
     private var baseURL: String = ""
@@ -31,7 +31,16 @@ public class DeepLinkingSDK {
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
     ///   - apiKey: API key for authentication (required for link creation)
-    public func configure(baseURL: String, apiKey: String) {
+    @objc public func configure(baseURL: String, apiKey: String) {
+        self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        self.apiKey = apiKey
+    }
+    
+    /// Configure the SDK with your deep linking service details (Objective-C compatible)
+    /// - Parameters:
+    ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
+    ///   - apiKey: Optional API key for authentication
+    @objc public func configureWithBaseURL(_ baseURL: String, apiKey: String?) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }
@@ -564,7 +573,7 @@ public struct DeepLinkData: Codable {
 public extension DeepLinkingSDK {
     
     /// Call this from application(_:didFinishLaunchingWithOptions:)
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+    @objc func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
         // Check for launch from URL
         if let url = launchOptions?[.url] as? URL {
             UserDefaults.standard.set(extractShortId(from: url), forKey: "pending_deferred_shortId")
@@ -580,7 +589,7 @@ public extension DeepLinkingSDK {
     }
     
     /// Call this from application(_:open:options:)
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    @objc func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         if let shortId = extractShortId(from: url) {
             UserDefaults.standard.set(shortId, forKey: "pending_deferred_shortId")
             return true
@@ -589,7 +598,7 @@ public extension DeepLinkingSDK {
     }
     
     /// Call this from application(_:continue:restorationHandler:)
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    @objc func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
            let url = userActivity.webpageURL,
            let shortId = extractShortId(from: url) {
