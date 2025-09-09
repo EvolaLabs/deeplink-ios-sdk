@@ -25,7 +25,7 @@ import UIKit
     
     // MARK: - Initialization
     
-    private init() {}
+    override private init() {}
     
     /// Configure the SDK with your deep linking service details
     /// - Parameters:
@@ -40,7 +40,8 @@ import UIKit
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
     ///   - apiKey: Optional API key for authentication
-    @objc public func configureWithBaseURL(_ baseURL: String, apiKey: String?) {
+    @objc(configureWithBaseURL:apiKey:)
+    public func configureWithBaseURL(_ baseURL: String, apiKey: String?) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }

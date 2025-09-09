@@ -25,13 +25,13 @@ import UIKit
     
     // MARK: - Initialization
     
-    private init() {}
+    override private init() {}
     
     /// Configure the SDK with your deep linking service details
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
     ///   - apiKey: API key for authentication (required for link creation)
-    @objc public func configure(baseURL: String, apiKey: String) {
+    public func configure(baseURL: String, apiKey: String) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }
@@ -40,7 +40,8 @@ import UIKit
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
     ///   - apiKey: Optional API key for authentication
-    @objc public func configureWithBaseURL(_ baseURL: String, apiKey: String?) {
+    @objc(configureWithBaseURL:apiKey:)
+    public func configureWithBaseURL(_ baseURL: String, apiKey: String?) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }
@@ -481,6 +482,12 @@ public struct LinksResponse: Codable {
     public let usage: UsageInfo
 }
 
+/// Custom parameter structure for links
+public struct CustomParameter: Codable {
+    public let key: String
+    public let value: String
+}
+
 /// Link info structure
 public struct LinkInfo: Codable {
     public let linkId: String
@@ -527,11 +534,6 @@ public struct DeepLinkData: Codable {
     public let utmTags: UTMTags
     public let timestamp: Double
     
-    /// Custom parameter structure
-    public struct CustomParameter: Codable {
-        public let key: String
-        public let value: String
-    }
     
     /// UTM tags structure
     public struct UTMTags: Codable {
