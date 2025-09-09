@@ -66,7 +66,7 @@ import UIKit
             return
         }
         
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "baseUrl": baseURL,
             "customParameters": customParameters
         ]
