@@ -188,6 +188,17 @@ import UIKit
             }
         }
     }
+
+    @objc(checkForDeferredDeepLinkWithCompletion:)
+    public func checkForDeferredDeepLinkObjC(completion: @escaping @convention(block) (DeepLinkDataObjC?) -> Void) {
+        self.checkForDeferredDeepLink { data in
+            if let data = data {
+                completion(DeepLinkDataObjC(from: data))
+            } else {
+                completion(nil)
+            }
+        }
+    }
     
     // MARK: - Private Methods
     
@@ -566,6 +577,31 @@ public struct DeepLinkData: Codable {
         }
         
         return params
+    }
+}
+
+@objcMembers
+public class DeepLinkDataObjC: NSObject {
+    public let linkId: String
+    public let shortId: String
+    public let title: String?
+    public let desc: String?
+    public let originalUrl: String
+    public let targetUrl: String
+    public let appUrl: String
+    public let platform: String
+    public let timestamp: Double
+
+    public init(from data: DeepLinkData) {
+        self.linkId = data.linkId
+        self.shortId = data.shortId
+        self.title = data.title
+        self.desc = data.description
+        self.originalUrl = data.originalUrl
+        self.targetUrl = data.targetUrl
+        self.appUrl = data.appUrl
+        self.platform = data.platform
+        self.timestamp = data.timestamp
     }
 }
 
