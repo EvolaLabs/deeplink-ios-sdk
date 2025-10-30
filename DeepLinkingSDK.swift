@@ -69,6 +69,7 @@ import UIKit
     
     /// Check for deferred deep links (call this on app launch)
     /// - Parameter completion: Completion handler with deferred deep link data if available
+    @objc(checkForDeferredDeepLinkWithCompletion:)
     public func checkForDeferredDeepLink(completion: @escaping (DeepLinkData?) -> Void) {
         // Store the completion handler
         deferredLinkHandlers.append(completion)
