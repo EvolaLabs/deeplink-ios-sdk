@@ -5,28 +5,28 @@ import UIKit
 /// Compatible with iOS 13.0+ and latest Xcode versions
 @available(iOS 13.0, *)
 @objc public class DeepLinkingSDK: NSObject {
-    
+
     // MARK: - Properties
-    
+
     /// Shared instance for singleton access
     @objc public static let shared = DeepLinkingSDK()
-    
+
     /// Base URL for the deep linking service
     private var baseURL: String = ""
-    
+
     /// API key for authentication (if required)
     private var apiKey: String?
-    
+
     /// Completion handlers for deferred deep links
     private var deferredLinkHandlers: [(DeepLinkData?) -> Void] = []
-    
+
     /// Timeout for network requests (in seconds)
     private let requestTimeout: TimeInterval = 10.0
-    
+
     // MARK: - Initialization
-    
+
     override private init() {}
-    
+
     /// Configure the SDK with your deep linking service details
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
@@ -35,7 +35,7 @@ import UIKit
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }
-    
+
     /// Configure the SDK with your deep linking service details (Objective-C compatible)
     /// - Parameters:
     ///   - baseURL: The base URL of your deep linking service (e.g., "https://your-domain.com")
@@ -45,9 +45,9 @@ import UIKit
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.apiKey = apiKey
     }
-    
+
     // MARK: - Link Creation
-    
+
     /// Create a deep link with custom parameters
     /// - Parameters:
     ///   - baseURL: The base URL for your app (e.g., "https://invite.yourdomain.com")
@@ -55,9 +55,9 @@ import UIKit
     ///   - title: Optional title for the link
     ///   - description: Optional description for the link
     ///   - completion: Completion handler with the created link data or error
-    public func createLink(baseURL: String, 
-                          customParameters: [String: String] = [:], 
-                          title: String? = nil, 
+    public func createLink(baseURL: String,
+                          customParameters: [String: String] = [:],
+                          title: String? = nil,
                           description: String? = nil,
                           completion: @escaping (Result<CreatedLinkData, SDKError>) -> Void) {
         
@@ -74,9 +74,9 @@ import UIKit
         if let title = title { requestBody["title"] = title }
         if let description = description { requestBody["description"] = description }
         
-        makeAPIRequest(endpoint: "/api/sdk/links", 
-                      method: "POST", 
-                      body: requestBody) { result in
+        makeAPIRequest(endpoint: "/api/sdk/links",
+                       method: "POST",
+                       body: requestBody) { result in
             switch result {
             case .success(let data):
                 do {
@@ -90,15 +90,15 @@ import UIKit
             }
         }
     }
-    
+
     /// Get user's links
     /// - Parameters:
     ///   - page: Page number (default: 1)
     ///   - limit: Items per page (default: 20)
     ///   - completion: Completion handler with links or error
-    public func getLinks(page: Int = 1, 
-                        limit: Int = 20,
-                        completion: @escaping (Result<LinksResponse, SDKError>) -> Void) {
+    public func getLinks(page: Int = 1,
+                         limit: Int = 20,
+                         completion: @escaping (Result<LinksResponse, SDKError>) -> Void) {
         
         guard !self.baseURL.isEmpty, let apiKey = self.apiKey else {
             completion(.failure(.notConfigured))
@@ -110,9 +110,9 @@ import UIKit
             URLQueryItem(name: "limit", value: String(limit))
         ]
         
-        makeAPIRequest(endpoint: "/api/sdk/links", 
-                      method: "GET", 
-                      queryItems: queryItems) { result in
+        makeAPIRequest(endpoint: "/api/sdk/links",
+                       method: "GET",
+                       queryItems: queryItems) { result in
             switch result {
             case .success(let data):
                 do {
@@ -126,9 +126,9 @@ import UIKit
             }
         }
     }
-    
+
     // MARK: - Deep Link Handling
-    
+
     /// Handle incoming deep link URL
     /// - Parameters:
     ///   - url: The deep link URL to handle
@@ -147,14 +147,14 @@ import UIKit
             }
         }
     }
-    
+
     /// Check for deferred deep links (call this on app launch)
     /// - Parameter completion: Completion handler with deferred deep link data if available
     public func checkForDeferredDeepLink(completion: @escaping (DeepLinkData?) -> Void) {
-        // Store the completion handler
+        // 1. Store the completion handler
         deferredLinkHandlers.append(completion)
         
-        // Check localStorage equivalent (UserDefaults) for deferred link data
+        // 2. Check local storage equivalent (UserDefaults) for deferred link data
         if let deferredData = getDeferredLinkFromStorage() {
             // Validate timestamp (expire after 24 hours)
             let currentTime = Date().timeIntervalSince1970
@@ -173,14 +173,14 @@ import UIKit
             }
         }
         
-        // Check for app installation attribution
+        // 3. **CRITICAL: Check for app installation attribution via server matching**
         checkInstallAttribution { [weak self] shortId in
             guard let self = self, let shortId = shortId else {
                 self?.executeDeferredLinkHandlers(with: nil)
                 return
             }
             
-            // Fetch the deep link data
+            // Fetch the deep link data using the attributed shortId
             self.fetchDeepLinkData(shortId: shortId) { data in
                 DispatchQueue.main.async {
                     self.executeDeferredLinkHandlers(with: data)
@@ -202,30 +202,7 @@ import UIKit
     
     // MARK: - Private Methods
     
-    /// Extract short ID from deep link URL
-    private func extractShortId(from url: URL) -> String? {
-        let pathComponents = url.pathComponents
-        
-        // Look for /r/{shortId} pattern
-        if let rIndex = pathComponents.firstIndex(of: "r"),
-           rIndex + 1 < pathComponents.count {
-            return pathComponents[rIndex + 1]
-        }
-        
-        // Look for shortId in query parameters
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let queryItems = components.queryItems {
-            for item in queryItems {
-                if item.name == "shortId" || item.name == "id" {
-                    return item.value
-                }
-            }
-        }
-        
-        return nil
-    }
-    
-    /// Fetch deep link data from server
+    /// Fetch deep link data from server using the short ID
     private func fetchDeepLinkData(shortId: String, completion: @escaping (DeepLinkData?) -> Void) {
         guard !baseURL.isEmpty else {
             print("DeepLinkingSDK: Base URL not configured")
@@ -251,7 +228,7 @@ import UIKit
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("DeepLinkingSDK: Network error - \(error.localizedDescription)")
+                print("DeepLinkingSDK: Network error fetching link data - \(error.localizedDescription)")
                 completion(nil)
                 return
             }
@@ -265,17 +242,116 @@ import UIKit
                 let deepLinkData = try JSONDecoder().decode(DeepLinkData.self, from: data)
                 completion(deepLinkData)
             } catch {
-                print("DeepLinkingSDK: JSON decode error - \(error)")
+                print("DeepLinkingSDK: JSON decode error fetching link data - \(error)")
                 completion(nil)
             }
         }.resume()
     }
     
+    /// **NEW CRITICAL METHOD:** Calls the server to match the current device's fingerprint
+    /// against recent pre-install link clicks.
+    private func makeAttributionRequest(attributes: [String: String], completion: @escaping (String?) -> Void) {
+        guard !baseURL.isEmpty else {
+            print("DeepLinkingSDK: Base URL not configured for attribution")
+            completion(nil)
+            return
+        }
+        
+        // This is the expected endpoint for server-side device matching
+        let urlString = "\(baseURL)/api/deferred-link/match"
+        guard let url = URL(string: urlString) else {
+            completion(nil)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = requestTimeout
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("DeepLinkingSDK-iOS/1.0", forHTTPHeaderField: "User-Agent")
+        
+        if let apiKey = apiKey {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: attributes)
+        } catch {
+            print("DeepLinkingSDK: Failed to serialize attribution body: \(error)")
+            completion(nil)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("DeepLinkingSDK: Attribution Network Error: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                completion(nil)
+                return
+            }
+            
+            // Server should respond with 200 OK and link data, or 204 No Content for no match
+            if httpResponse.statusCode == 204 {
+                print("DeepLinkingSDK: No deferred link match found (204 No Content).")
+                completion(nil)
+                return
+            }
+            
+            guard httpResponse.statusCode == 200, let data = data else {
+                let serverMessage = String(data: data ?? Data(), encoding: .utf8) ?? "N/A"
+                print("DeepLinkingSDK: Attribution Server Error \(httpResponse.statusCode). Message: \(serverMessage)")
+                completion(nil)
+                return
+            }
+            
+            // Expected response: {"shortId": "abc1234"}
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let shortId = json["shortId"] as? String {
+                    completion(shortId)
+                } else {
+                    completion(nil)
+                }
+            } catch {
+                print("DeepLinkingSDK: Failed to decode attribution response: \(error)")
+                completion(nil)
+            }
+            
+        }.resume()
+    }
+
+    /// Extract short ID from deep link URL
+    private func extractShortId(from url: URL) -> String? {
+        let pathComponents = url.pathComponents
+        
+        // Look for /r/{shortId} pattern
+        if let rIndex = pathComponents.firstIndex(of: "r"),
+           rIndex + 1 < pathComponents.count {
+            return pathComponents[rIndex + 1]
+        }
+        
+        // Look for shortId in query parameters
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let queryItems = components.queryItems {
+            for item in queryItems {
+                if item.name == "shortId" || item.name == "id" {
+                    return item.value
+                }
+            }
+        }
+        
+        return nil
+    }
+
     /// Check UserDefaults for deferred link data stored by web page
     private func getDeferredLinkFromStorage() -> DeepLinkData? {
-        // In iOS, we can't directly access localStorage from web views
-        // But we can implement a custom URL scheme to receive the data
-        // For now, we'll check UserDefaults for manually stored data
+        // This is a placeholder for custom implementations where the web view
+        // might communicate data back via a complex mechanism.
+        // **The attribution request is the preferred method.**
         
         guard let data = UserDefaults.standard.data(forKey: "deferred_deep_link") else {
             return nil
@@ -288,38 +364,43 @@ import UIKit
             return nil
         }
     }
-    
+
     /// Clear deferred link data from storage
     private func clearDeferredLinkFromStorage() {
         UserDefaults.standard.removeObject(forKey: "deferred_deep_link")
         UserDefaults.standard.removeObject(forKey: "deferred_deep_link_timestamp")
     }
-    
-    /// Check for app installation attribution using various methods
+
+    /// Check for app installation attribution using server matching (preferred) and local fallbacks.
     private func checkInstallAttribution(completion: @escaping (String?) -> Void) {
-        // Method 1: Check UIPasteboard for deferred link data (if implemented on web side)
-        checkPasteboardForDeferredLink { shortId in
+        
+        // **Priority 1: Server-Side Attribution Match (The correct way)**
+        let attributes = DeviceAttributionHelper.getDeviceAttributes()
+        print("DeepLinkingSDK: Attempting server-side attribution match with attributes: \(attributes)")
+        
+        makeAttributionRequest(attributes: attributes) { shortId in
             if let shortId = shortId {
                 completion(shortId)
                 return
             }
             
-            // Method 2: Check for custom URL scheme data
-            // This would be set by the app delegate when handling custom URLs
+            // **Priority 2: Fallback to local storage (for direct or custom schemes)**
             if let shortId = UserDefaults.standard.string(forKey: "pending_deferred_shortId") {
                 UserDefaults.standard.removeObject(forKey: "pending_deferred_shortId")
                 completion(shortId)
                 return
             }
             
-            // Method 3: Check for universal link data
             if let shortId = UserDefaults.standard.string(forKey: "universal_link_shortId") {
                 UserDefaults.standard.removeObject(forKey: "universal_link_shortId")
                 completion(shortId)
                 return
             }
             
-            completion(nil)
+            // **Priority 3: Fallback to Pasteboard (least reliable)**
+            self.checkPasteboardForDeferredLink { shortId in
+                completion(shortId)
+            }
         }
     }
     
@@ -351,7 +432,7 @@ import UIKit
         
         completion(nil)
     }
-    
+
     /// Execute all pending deferred link handlers
     private func executeDeferredLinkHandlers(with data: DeepLinkData?) {
         for handler in deferredLinkHandlers {
@@ -359,13 +440,13 @@ import UIKit
         }
         deferredLinkHandlers.removeAll()
     }
-    
+
     /// Make API request to deep linking service
-    private func makeAPIRequest(endpoint: String, 
-                               method: String, 
-                               body: [String: Any]? = nil,
-                               queryItems: [URLQueryItem]? = nil,
-                               completion: @escaping (Result<Data, SDKError>) -> Void) {
+    private func makeAPIRequest(endpoint: String,
+                                method: String,
+                                body: [String: Any]? = nil,
+                                queryItems: [URLQueryItem]? = nil,
+                                completion: @escaping (Result<Data, SDKError>) -> Void) {
         
         guard let apiKey = apiKey else {
             completion(.failure(.notConfigured))
@@ -707,8 +788,62 @@ public extension View {
      
      // Navigate to the appropriate screen
      if let code = inviteCode, let path = redirectPath {
-         navigateToInvite(code: code, redirectTo: path)
+         // navigateToInvite(code: code, redirectTo: path)
      }
  }
  
  */
+
+
+import Foundation
+import UIKit
+
+/// Helper class to gather necessary (non-PII) device attributes for server-side
+/// attribution matching in deferred deep linking.
+@objcMembers
+public class DeviceAttributionHelper: NSObject {
+    
+    /// Collects basic device attributes for matching the pre-install click.
+    /// The IP address is handled by the server receiving this request.
+    /// - Returns: A dictionary of device attributes.
+    public static func getDeviceAttributes() -> [String: String] {
+        let device = UIDevice.current
+        
+        var attributes: [String: String] = [
+            "deviceModel": getDeviceModel(),
+            "osVersion": device.systemVersion,
+            "platform": "iOS",
+            // Use an anonymous UUID for a session/install ID if needed for server tracking
+            "installId": getInstallID()
+        ]
+        
+        // Add current timestamp for freshness checking on the server
+        attributes["timestamp"] = String(Date().timeIntervalSince1970 * 1000)
+        
+        return attributes
+    }
+    
+    /// Gets the marketing name for the device model if possible, otherwise the identifier.
+    private static func getDeviceModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let modelCode = withUnsafePointer(to: &systemInfo.machine.0) { ptr in
+            return String(cString: ptr)
+        }
+        
+        // You can expand this mapping for better device names if desired
+        return modelCode
+    }
+    
+    /// Retrieves or generates a unique ID for this installation.
+    private static func getInstallID() -> String {
+        let key = "DeepLinkingSDK_InstallUUID"
+        if let uuid = UserDefaults.standard.string(forKey: key) {
+            return uuid
+        } else {
+            let newUUID = UUID().uuidString
+            UserDefaults.standard.set(newUUID, forKey: key)
+            return newUUID
+        }
+    }
+}
