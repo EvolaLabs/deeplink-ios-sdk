@@ -626,6 +626,19 @@ public struct DeepLinkData: Codable {
     public let utmTags: UTMTags
     public let timestamp: Double
     
+    enum CodingKeys: String, CodingKey {
+        case linkId
+        case shortId
+        case title
+        case description
+        case originalUrl
+        case targetUrl
+        case appUrl
+        case platform
+        case customParameters
+        case utmTags
+        case timestamp
+    }
     
     /// UTM tags structure
     public struct UTMTags: Codable {
@@ -634,6 +647,14 @@ public struct DeepLinkData: Codable {
         public let campaign: String?
         public let term: String?
         public let content: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case source
+            case medium
+            case campaign
+            case term
+            case content
+        }
     }
     
     /// Get custom parameter value by key
@@ -661,6 +682,36 @@ public struct DeepLinkData: Codable {
     }
 }
 
+/// Objective-C compatible CustomParameter
+@objcMembers
+public class CustomParameterObjC: NSObject {
+    public let key: String
+    public let value: String
+    
+    public init(key: String, value: String) {
+        self.key = key
+        self.value = value
+    }
+}
+
+/// Objective-C compatible UTMTags
+@objcMembers
+public class UTMTagsObjC: NSObject {
+    public let source: String?
+    public let medium: String?
+    public let campaign: String?
+    public let term: String?
+    public let content: String?
+    
+    public init(source: String?, medium: String?, campaign: String?, term: String?, content: String?) {
+        self.source = source
+        self.medium = medium
+        self.campaign = campaign
+        self.term = term
+        self.content = content
+    }
+}
+
 @objcMembers
 public class DeepLinkDataObjC: NSObject {
     public let linkId: String
@@ -671,6 +722,8 @@ public class DeepLinkDataObjC: NSObject {
     public let targetUrl: String
     public let appUrl: String
     public let platform: String
+    public let customParameters: [CustomParameterObjC]
+    public let utmTags: UTMTagsObjC
     public let timestamp: Double
 
     public init(from data: DeepLinkData) {
@@ -682,7 +735,41 @@ public class DeepLinkDataObjC: NSObject {
         self.targetUrl = data.targetUrl
         self.appUrl = data.appUrl
         self.platform = data.platform
+        self.customParameters = data.customParameters.map { CustomParameterObjC(key: $0.key, value: $0.value) }
+        self.utmTags = UTMTagsObjC(
+            source: data.utmTags.source,
+            medium: data.utmTags.medium,
+            campaign: data.utmTags.campaign,
+            term: data.utmTags.term,
+            content: data.utmTags.content
+        )
         self.timestamp = data.timestamp
+    }
+    
+    /// Get custom parameter value by key
+    @objc(getCustomParameter:)
+    public func getCustomParameter(_ key: String) -> String? {
+        return customParameters.first { $0.key == key }?.value
+    }
+    
+    /// Get all parameters as dictionary
+    @objc(getParametersDictionary)
+    public func getParametersDictionary() -> [String: String] {
+        var params: [String: String] = [:]
+        
+        // Add UTM parameters
+        if let source = utmTags.source { params["utm_source"] = source }
+        if let medium = utmTags.medium { params["utm_medium"] = medium }
+        if let campaign = utmTags.campaign { params["utm_campaign"] = campaign }
+        if let term = utmTags.term { params["utm_term"] = term }
+        if let content = utmTags.content { params["utm_content"] = content }
+        
+        // Add custom parameters
+        for param in customParameters {
+            params[param.key] = param.value
+        }
+        
+        return params
     }
 }
 
